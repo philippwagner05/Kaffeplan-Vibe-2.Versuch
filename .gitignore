@@ -1,0 +1,11 @@
+# Build-Ergebnisse
+bin/
+obj/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+
+# Testergebnisse
+TestResults/

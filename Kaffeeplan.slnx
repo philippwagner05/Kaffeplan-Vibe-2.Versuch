@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="Kaffeeplan.App/Kaffeeplan.App.csproj" />
+  <Project Path="Kaffeeplan.Core/Kaffeeplan.Core.csproj" />
+  <Project Path="Kaffeeplan.Tests/Kaffeeplan.Tests.csproj" />
+</Solution>

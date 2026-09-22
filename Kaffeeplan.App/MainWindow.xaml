@@ -1,0 +1,161 @@
+<Window x:Class="Kaffeeplan.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Kaffeemaschinen-Dienstplan"
+        Height="720" Width="1180"
+        MinHeight="520" MinWidth="900"
+        WindowStartupLocation="CenterScreen">
+
+    <Window.Resources>
+        <SolidColorBrush x:Key="FilterwocheHintergrund" Color="#FFF3CD" />
+        <SolidColorBrush x:Key="FilterwocheRand" Color="#E0A800" />
+        <SolidColorBrush x:Key="Abschnittsrahmen" Color="#D0D0D0" />
+
+        <Style x:Key="Abschnittstitel" TargetType="TextBlock">
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+        </Style>
+
+        <!-- Filterwochen werden farblich hervorgehoben. -->
+        <Style x:Key="PlanZeile" TargetType="DataGridRow">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IstFilterwoche}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource FilterwocheHintergrund}" />
+                    <Setter Property="FontWeight" Value="SemiBold" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
+    <DockPanel Margin="12">
+
+        <!-- Kopfzeile: Jahreswahl und Dateiaktionen -->
+        <Border DockPanel.Dock="Top" Padding="10" Margin="0,0,0,10"
+                BorderBrush="{StaticResource Abschnittsrahmen}" BorderThickness="1" CornerRadius="4">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Text="Jahr:" VerticalAlignment="Center" Margin="0,0,8,0" />
+                <Button Content="&#x25C0;" Width="30" Padding="0,2" ToolTip="Ein Jahr zurück"
+                        Command="{Binding JahrZurueckCommand}" />
+                <TextBox Width="70" Margin="4,0" VerticalContentAlignment="Center"
+                         TextAlignment="Center"
+                         Text="{Binding JahrEingabe, UpdateSourceTrigger=PropertyChanged}" />
+                <Button Content="&#x25B6;" Width="30" Padding="0,2" ToolTip="Ein Jahr vor"
+                        Command="{Binding JahrVorCommand}" />
+
+                <Button Content="Plan erzeugen" Margin="16,0,0,0" Padding="14,4"
+                        Command="{Binding PlanErzeugenCommand}" />
+
+                <Separator Margin="16,0" Width="1" />
+
+                <Button Content="Laden" Padding="12,4" Command="{Binding LadenCommand}" />
+                <Button Content="Speichern" Margin="6,0,0,0" Padding="12,4"
+                        Command="{Binding SpeichernCommand}" />
+                <Button Content="CSV-Export" Margin="6,0,0,0" Padding="12,4"
+                        Command="{Binding CsvExportierenCommand}" />
+            </StackPanel>
+        </Border>
+
+        <!-- Fusszeile: Status und Regelpruefung -->
+        <Border DockPanel.Dock="Bottom" Padding="10" Margin="0,10,0,0"
+                BorderBrush="{StaticResource Abschnittsrahmen}" BorderThickness="1" CornerRadius="4">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0" Text="{Binding StatusMeldung}" TextTrimming="CharacterEllipsis"
+                           VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" Text="{Binding Regelstatus}" Margin="16,0,0,0"
+                           FontWeight="SemiBold" VerticalAlignment="Center" />
+            </Grid>
+        </Border>
+
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="260" MinWidth="200" />
+                <ColumnDefinition Width="6" />
+                <ColumnDefinition Width="*" MinWidth="360" />
+                <ColumnDefinition Width="6" />
+                <ColumnDefinition Width="300" MinWidth="240" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Links: Mitarbeiterpflege -->
+            <DockPanel Grid.Column="0">
+                <TextBlock DockPanel.Dock="Top" Text="Mitarbeiter" Style="{StaticResource Abschnittstitel}" />
+
+                <StackPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
+                    <TextBox Text="{Binding NeuerMitarbeiterName, UpdateSourceTrigger=PropertyChanged}"
+                             Padding="4,3" />
+                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                        <Button Content="Hinzufügen" Padding="10,4"
+                                Command="{Binding MitarbeiterHinzufuegenCommand}" />
+                        <Button Content="Entfernen" Margin="6,0,0,0" Padding="10,4"
+                                Command="{Binding MitarbeiterEntfernenCommand}" />
+                    </StackPanel>
+                    <TextBlock Text="Namen in der Liste sind direkt editierbar."
+                               Foreground="Gray" FontSize="11" Margin="0,6,0,0" TextWrapping="Wrap" />
+                </StackPanel>
+
+                <DataGrid ItemsSource="{Binding Mitarbeiter}"
+                          SelectedItem="{Binding AusgewaehlterMitarbeiter}"
+                          AutoGenerateColumns="False" HeadersVisibility="Column"
+                          CanUserAddRows="False" CanUserDeleteRows="False"
+                          GridLinesVisibility="Horizontal" SelectionMode="Single">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Name" Width="*"
+                                            Binding="{Binding Name, UpdateSourceTrigger=LostFocus}" />
+                    </DataGrid.Columns>
+                </DataGrid>
+            </DockPanel>
+
+            <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Stretch" Background="Transparent" />
+
+            <!-- Mitte: der Plan -->
+            <DockPanel Grid.Column="2">
+                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
+                    <TextBlock Text="Dienstplan" Style="{StaticResource Abschnittstitel}" />
+                    <Border Background="{StaticResource FilterwocheHintergrund}"
+                            BorderBrush="{StaticResource FilterwocheRand}" BorderThickness="1"
+                            CornerRadius="3" Padding="6,1" Margin="12,0,0,6" VerticalAlignment="Center">
+                        <TextBlock Text="Filterwoche" FontSize="11" />
+                    </Border>
+                </StackPanel>
+
+                <DataGrid ItemsSource="{Binding Wochen}"
+                          RowStyle="{StaticResource PlanZeile}"
+                          AutoGenerateColumns="False" IsReadOnly="True"
+                          HeadersVisibility="Column" CanUserAddRows="False"
+                          GridLinesVisibility="Horizontal" SelectionMode="Single">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="KW" Width="50" Binding="{Binding Kalenderwoche}" />
+                        <DataGridTextColumn Header="Zeitraum" Width="180" Binding="{Binding Zeitraum}" />
+                        <DataGridTextColumn Header="Zuständig" Width="*" Binding="{Binding Name}" />
+                        <DataGridTextColumn Header="Aufgabe" Width="190" Binding="{Binding Aufgabe}" />
+                    </DataGrid.Columns>
+                </DataGrid>
+            </DockPanel>
+
+            <GridSplitter Grid.Column="3" Width="6" HorizontalAlignment="Stretch" Background="Transparent" />
+
+            <!-- Rechts: Statistik je Person -->
+            <DockPanel Grid.Column="4">
+                <TextBlock DockPanel.Dock="Top" Text="Statistik je Person"
+                           Style="{StaticResource Abschnittstitel}" />
+
+                <DataGrid ItemsSource="{Binding Statistik}"
+                          AutoGenerateColumns="False" IsReadOnly="True"
+                          HeadersVisibility="Column" CanUserAddRows="False"
+                          GridLinesVisibility="Horizontal" SelectionMode="Single">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Name" Width="*" Binding="{Binding Name}" />
+                        <DataGridTextColumn Header="Reinigungen" Width="90"
+                                            Binding="{Binding Reinigungen}" />
+                        <DataGridTextColumn Header="Filter" Width="60"
+                                            Binding="{Binding Filtertausche}" />
+                    </DataGrid.Columns>
+                </DataGrid>
+            </DockPanel>
+        </Grid>
+    </DockPanel>
+</Window>

@@ -1,0 +1,28 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- net10.0-windows und UseWPF, weil die ViewModel-Tests gegen Kaffeeplan.App laufen
+         (ICommand liegt in WindowsBase). Die Core-Tests selbst brauchen kein Windows. -->
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MSTest" Version="4.0.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
+    <!-- UseWPF tauscht die Implicit Usings aus und laesst System.IO weg. -->
+    <Using Include="System.IO" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Kaffeeplan.Core\Kaffeeplan.Core.csproj" />
+    <ProjectReference Include="..\Kaffeeplan.App\Kaffeeplan.App.csproj" />
+  </ItemGroup>
+
+</Project>
