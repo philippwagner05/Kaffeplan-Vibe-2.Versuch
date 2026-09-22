@@ -7,9 +7,16 @@
         WindowStartupLocation="CenterScreen">
 
     <Window.Resources>
-        <SolidColorBrush x:Key="FilterwocheHintergrund" Color="#FFF3CD" />
-        <SolidColorBrush x:Key="FilterwocheRand" Color="#E0A800" />
-        <SolidColorBrush x:Key="Abschnittsrahmen" Color="#D0D0D0" />
+        <!--
+            Farbpalette, abgeleitet aus #C7EFFC (Farbton 195°).
+            Der Rand nimmt denselben Farbton bei deutlich geringerer Helligkeit, damit
+            die Markierung auch auf hellem Untergrund als Rahmen lesbar bleibt. Der
+            Abschnittsrahmen ist derselbe Farbton stark entsaettigt - er soll die
+            Gliederung andeuten, nicht mit der Filterwoche um Aufmerksamkeit ringen.
+        -->
+        <SolidColorBrush x:Key="FilterwocheHintergrund" Color="#C7EFFC" />
+        <SolidColorBrush x:Key="FilterwocheRand" Color="#2091B6" />
+        <SolidColorBrush x:Key="Abschnittsrahmen" Color="#BFD2D9" />
 
         <Style x:Key="Abschnittstitel" TargetType="TextBlock">
             <Setter Property="FontWeight" Value="SemiBold" />
