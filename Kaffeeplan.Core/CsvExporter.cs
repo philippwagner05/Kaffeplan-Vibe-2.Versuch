@@ -22,6 +22,7 @@ public static class CsvExporter
         ArgumentNullException.ThrowIfNull(writer);
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentNullException.ThrowIfNull(mitarbeiter);
+        Mitarbeiterliste.PruefeEindeutigeIds(mitarbeiter, nameof(mitarbeiter));
 
         var namen = mitarbeiter.ToDictionary(m => m.Id, m => m.Name);
 

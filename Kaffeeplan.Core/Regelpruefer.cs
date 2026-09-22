@@ -60,6 +60,8 @@ public static class Regelpruefer
             throw new ArgumentException("Ohne Mitarbeiter lässt sich kein Plan prüfen.", nameof(mitarbeiter));
         }
 
+        Mitarbeiterliste.PruefeEindeutigeIds(mitarbeiter, nameof(mitarbeiter));
+
         var reinigungen = mitarbeiter.ToDictionary(m => m.Id, _ => 0);
         var filter = mitarbeiter.ToDictionary(m => m.Id, _ => 0);
 

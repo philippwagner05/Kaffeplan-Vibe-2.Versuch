@@ -20,6 +20,7 @@ public static class Statistikrechner
     {
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentNullException.ThrowIfNull(mitarbeiter);
+        Mitarbeiterliste.PruefeEindeutigeIds(mitarbeiter, nameof(mitarbeiter));
 
         var reinigungen = mitarbeiter.ToDictionary(m => m.Id, _ => 0);
         var filter = mitarbeiter.ToDictionary(m => m.Id, _ => 0);

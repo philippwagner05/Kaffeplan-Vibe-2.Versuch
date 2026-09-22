@@ -57,9 +57,9 @@ public sealed class Dienstplaner
             return PlanungsErgebnis.Fehler("Die Mitarbeiterliste enthält einen leeren Eintrag.");
         }
 
-        if (mitarbeiter.Select(m => m.Id).Distinct().Count() != mitarbeiter.Count)
+        if (!Mitarbeiterliste.HatEindeutigeIds(mitarbeiter))
         {
-            return PlanungsErgebnis.Fehler("Die Mitarbeiterliste enthält dieselbe Person mehrfach.");
+            return PlanungsErgebnis.Fehler(Mitarbeiterliste.DublettenMeldung);
         }
 
         if (jahr is < Kalenderwoche.MinJahr or > Kalenderwoche.MaxJahr)

@@ -231,6 +231,24 @@ public sealed class MainViewModelTests
     }
 
     [TestMethod]
+    public void Verschwindet_der_Plan_durch_eine_Teamaenderung_wird_der_Grund_genannt()
+    {
+        // Von drei auf zwei Personen: damit gibt es keinen Plan mehr, der F1, F2 und F3
+        // gleichzeitig erfuellt. Die Liste leert sich sichtbar - der Benutzer muss
+        // erfahren, warum, und nicht nur "Mario wurde entfernt" lesen.
+        MainViewModel vm = ViewModel(anzahlPersonen: 3);
+        vm.PlanErzeugenCommand.Execute(null);
+        Assert.IsTrue(vm.HatPlan);
+
+        vm.AusgewaehlterMitarbeiter = vm.Mitarbeiter[2];
+        vm.MitarbeiterEntfernenCommand.Execute(null);
+
+        Assert.IsFalse(vm.HatPlan);
+        Assert.IsEmpty(vm.Wochen);
+        StringAssert.Contains(vm.StatusMeldung, "F1, F2 und F3");
+    }
+
+    [TestMethod]
     public void Ein_leeres_Team_sperrt_das_Erzeugen()
     {
         MainViewModel vm = ViewModel();

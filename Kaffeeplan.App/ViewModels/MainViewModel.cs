@@ -244,9 +244,11 @@ public sealed class MainViewModel : ObservableObject
             return;
         }
 
+        bool hatteVorherPlan = HatPlan;
+
         Fuegehinzu(new MitarbeiterViewModel(new Mitarbeiter(name)));
         NeuerMitarbeiterName = string.Empty;
-        StatusMeldung = $"{name} wurde hinzugefügt.";
+        MeldeTeamaenderung($"{name} wurde hinzugefügt.", hatteVorherPlan);
     }
 
     private void MitarbeiterEntfernen()
@@ -256,10 +258,27 @@ public sealed class MainViewModel : ObservableObject
             return;
         }
 
+        bool hatteVorherPlan = HatPlan;
+
         person.PropertyChanged -= MitarbeiterGeaendert;
         Mitarbeiter.Remove(person);
         AusgewaehlterMitarbeiter = null;
-        StatusMeldung = $"{person.Name} wurde entfernt.";
+        MeldeTeamaenderung($"{person.Name} wurde entfernt.", hatteVorherPlan);
+    }
+
+    /// <summary>
+    /// Die Teamaenderung hat den Plan bereits neu berechnet. Ist er dabei weggefallen,
+    /// bleibt die Erklaerung des Planers stehen - sonst verschwindet die Wochenliste
+    /// kommentarlos und der Benutzer sieht nur "X wurde entfernt".
+    /// </summary>
+    private void MeldeTeamaenderung(string meldung, bool hatteVorherPlan)
+    {
+        if (hatteVorherPlan && !HatPlan)
+        {
+            return;
+        }
+
+        StatusMeldung = meldung;
     }
 
     private void Fuegehinzu(MitarbeiterViewModel person)
@@ -330,6 +349,15 @@ public sealed class MainViewModel : ObservableObject
         catch (SpeicherAusnahme fehler)
         {
             StatusMeldung = fehler.Message;
+            return;
+        }
+
+        // Der Stand kommt von aussen und kann eine Person doppelt enthalten. Das wird
+        // geprueft, bevor irgendetwas uebernommen wird - sonst bleibt die Oberflaeche
+        // halb umgestellt zurueck.
+        if (!Mitarbeiterliste.HatEindeutigeIds(stand.Mitarbeiter))
+        {
+            StatusMeldung = $"{Mitarbeiterliste.DublettenMeldung} Die Datei wurde nicht geladen.";
             return;
         }
 

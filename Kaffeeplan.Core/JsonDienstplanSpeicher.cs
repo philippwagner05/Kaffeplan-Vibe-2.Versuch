@@ -92,6 +92,10 @@ public sealed class JsonDienstplanSpeicher : IDienstplanSpeicher
                 .Select(m => new Mitarbeiter(m.Id, m.Name))
                 .ToList();
 
+            // Eine von Hand editierte Datei kann dieselbe Id zweimal enthalten. Ohne
+            // diese Pruefung faellt das erst spaeter auf, wenn nach Id nachgeschlagen wird.
+            Mitarbeiterliste.PruefeEindeutigeIds(mitarbeiter, nameof(quelle));
+
             Dienstplan? plan = null;
             if (dto.Plan is not null)
             {
@@ -101,6 +105,16 @@ public sealed class JsonDienstplanSpeicher : IDienstplanSpeicher
                     .ToList();
 
                 plan = new Dienstplan(dto.Plan.Jahr, eintraege);
+
+                // Der Plan muss zur Mitarbeiterliste derselben Datei passen. Sonst
+                // zeigt die Oberflaeche "Unbekannt" und die Regelpruefung wird
+                // bedeutungslos, weil sie unbekannte Eintraege nicht mitzaehlt.
+                var bekannteIds = mitarbeiter.Select(m => m.Id).ToHashSet();
+                if (plan.Eintraege.Any(e => !bekannteIds.Contains(e.MitarbeiterId)))
+                {
+                    throw new SpeicherAusnahme(
+                        "Der Plan in der Datei teilt Personen ein, die nicht in der Mitarbeiterliste stehen.");
+                }
             }
 
             return new Speicherstand(mitarbeiter, plan);
