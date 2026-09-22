@@ -97,6 +97,22 @@ public sealed class SystemClockTests
     [TestMethod]
     public void Die_Systemuhr_liefert_das_heutige_Datum()
     {
-        Assert.AreEqual(DateOnly.FromDateTime(DateTime.Now), SystemClock.Instanz.Heute);
+        // Die Uhr wird zwangslaeufig zweimal gelesen - einmal hier, einmal in der
+        // Systemuhr. Faellt Mitternacht zwischen die beiden Lesungen, sind die Werte
+        // verschieden, ohne dass am Code etwas falsch waere. Deshalb wird der Wert
+        // eingeklammert statt mit einer einzelnen Lesung verglichen.
+        DateOnly vorher = DateOnly.FromDateTime(DateTime.Now);
+        DateOnly heute = SystemClock.Instanz.Heute;
+        DateOnly nachher = DateOnly.FromDateTime(DateTime.Now);
+
+        Assert.IsTrue(
+            heute == vorher || heute == nachher,
+            $"Die Systemuhr lieferte {heute}, erwartet war {vorher} oder {nachher}.");
+    }
+
+    [TestMethod]
+    public void Die_Systemuhr_ist_ein_Singleton()
+    {
+        Assert.AreSame(SystemClock.Instanz, SystemClock.Instanz);
     }
 }

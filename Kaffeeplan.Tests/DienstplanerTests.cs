@@ -140,6 +140,7 @@ public sealed class DienstplanerTests
     [TestMethod]
     [DataRow(0)]
     [DataRow(-5)]
+    [DataRow(9999)]
     [DataRow(10000)]
     public void Ein_ungueltiges_Jahr_kommt_als_Meldung_zurueck(int jahr)
     {
@@ -147,6 +148,71 @@ public sealed class DienstplanerTests
 
         Assert.IsFalse(ergebnis.Erfolgreich);
         Assert.IsFalse(string.IsNullOrWhiteSpace(ergebnis.Fehlermeldung));
+    }
+
+    [TestMethod]
+    public void Das_letzte_gueltige_Jahr_laesst_sich_vollstaendig_planen()
+    {
+        List<Mitarbeiter> team = Testdaten.Team(6);
+
+        PlanungsErgebnis ergebnis = new Dienstplaner().Erzeuge(Kalenderwoche.MaxJahr, team);
+
+        Assert.IsTrue(ergebnis.Erfolgreich, ergebnis.Fehlermeldung);
+        Assert.IsTrue(Regelpruefer.Pruefe(ergebnis.Plan!, team).AllesErfuellt);
+
+        // Der Plan muss sich auch anzeigen und exportieren lassen - genau daran
+        // scheiterte frueher das Jahr 9999.
+        foreach (Wocheneintrag eintrag in ergebnis.Plan!.Eintraege)
+        {
+            Assert.AreEqual(DayOfWeek.Sunday, eintrag.Woche.Sonntag.DayOfWeek);
+        }
+    }
+
+    // ----- Grosse Teams -----
+    // Wer eine Filterwoche zugewiesen bekommt, braucht dafuer noch Kontingent. Ohne
+    // diese Reservierung verbrauchte die gierige Auswahl das Kontingent vorher an
+    // freien Wochen; die Suche lief dann in eine Sackgasse und meldete ab etwa 18
+    // Personen "kein Plan", obwohl einer existiert.
+
+    [TestMethod]
+    [DataRow(2025, 18)]
+    [DataRow(2025, 19)]
+    [DataRow(2025, 26)]
+    [DataRow(2025, 40)]
+    [DataRow(2025, 52)]
+    [DataRow(2026, 18)]
+    [DataRow(2026, 20)]
+    [DataRow(2026, 53)]
+    public void Auch_grosse_Teams_bekommen_einen_gueltigen_Plan(int jahr, int anzahlPersonen)
+    {
+        List<Mitarbeiter> team = Testdaten.Team(anzahlPersonen);
+
+        PlanungsErgebnis ergebnis = new Dienstplaner().Erzeuge(jahr, team);
+
+        Assert.IsTrue(ergebnis.Erfolgreich, ergebnis.Fehlermeldung);
+        Pruefergebnis geprueft = Regelpruefer.Pruefe(ergebnis.Plan!, team);
+        Assert.IsTrue(geprueft.AllesErfuellt, $"{jahr} mit {anzahlPersonen} Personen: {geprueft}");
+    }
+
+    [TestMethod]
+    public void Fuer_jede_Teamgroesse_ab_drei_Personen_wird_ein_Plan_gefunden()
+    {
+        // Ein Rundumschlag statt einzelner Stichproben: ab drei Personen gibt es fuer
+        // jede Groesse bis zur Wochenzahl einen Plan, und keine Groesse laesst die
+        // Suche in die Abbruchgrenze laufen.
+        foreach (int jahr in new[] { 2025, 2026 })
+        {
+            for (int anzahl = 3; anzahl <= Kalenderwoche.WochenImJahr(jahr); anzahl++)
+            {
+                List<Mitarbeiter> team = Testdaten.Team(anzahl);
+
+                PlanungsErgebnis ergebnis = new Dienstplaner().Erzeuge(jahr, team);
+
+                Assert.IsTrue(ergebnis.Erfolgreich, $"{jahr} mit {anzahl} Personen: {ergebnis.Fehlermeldung}");
+                Pruefergebnis geprueft = Regelpruefer.Pruefe(ergebnis.Plan!, team);
+                Assert.IsTrue(geprueft.AllesErfuellt, $"{jahr} mit {anzahl} Personen: {geprueft}");
+            }
+        }
     }
 
     [TestMethod]

@@ -66,6 +66,10 @@ public sealed class MainViewModelTests
     [DataRow("zweitausend")]
     [DataRow("20x6")]
     [DataRow("0")]
+    // 9999 ist der Fall, der frueher durch die Pruefung kam und dann beim Aufbau der
+    // Wochenliste die Anwendung abstuerzen liess: der Sonntag der letzten Woche 9999
+    // liegt hinter DateOnly.MaxValue (A11).
+    [DataRow("9999")]
     [DataRow("99999")]
     public void Eine_unsinnige_Jahreszahl_erzeugt_eine_Meldung_statt_eines_Absturzes(string eingabe)
     {

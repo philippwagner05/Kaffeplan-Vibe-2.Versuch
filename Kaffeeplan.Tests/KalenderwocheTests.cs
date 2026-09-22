@@ -131,4 +131,64 @@ public sealed class KalenderwocheTests
         Assert.AreEqual(new Kalenderwoche(2026, 1), wochen[0]);
         Assert.AreEqual(new Kalenderwoche(2026, 53), wochen[^1]);
     }
+
+    // --- Die obere Jahresgrenze -------------------------------------------------
+    // Die letzte ISO-Woche des Jahres 9999 endet am 02.01.10000 und liegt damit hinter
+    // DateOnly.MaxValue. Frueher war 9999 gueltig, und der Sonntag dieser Woche liess
+    // erst die Anzeige und den CSV-Export mit einer Ausnahme scheitern (A11).
+
+    [TestMethod]
+    public void Jede_Woche_bis_zur_Jahresgrenze_hat_einen_darstellbaren_Sonntag()
+    {
+        foreach (Kalenderwoche woche in Kalenderwoche.Jahreswochen(Kalenderwoche.MaxJahr))
+        {
+            DateOnly sonntag = woche.Sonntag;
+
+            Assert.AreEqual(DayOfWeek.Sunday, sonntag.DayOfWeek, $"{woche} endet nicht auf einem Sonntag.");
+            Assert.IsTrue(sonntag >= woche.Montag, $"{woche} endet vor ihrem Montag.");
+        }
+    }
+
+    [TestMethod]
+    public void Ein_Jahr_jenseits_der_Grenze_ist_keine_gueltige_Kalenderwoche()
+    {
+        // 9998 ist die Grenze; 9999 muss abgelehnt werden, statt erst spaeter beim
+        // Sonntag dieser Woche eine Ausnahme zu werfen.
+        Assert.IsNotNull(new Kalenderwoche(9998, 1));
+
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => new Kalenderwoche(9999, 1));
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => Kalenderwoche.WochenImJahr(9999));
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => Kalenderwoche.Jahreswochen(9999));
+    }
+
+    [TestMethod]
+    public void Ein_Datum_jenseits_der_Grenze_wird_als_solches_gemeldet()
+    {
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(
+            () => Kalenderwoche.VonDatum(DateOnly.MaxValue));
+    }
+
+    [TestMethod]
+    public void TryParse_lehnt_ein_Jahr_jenseits_der_Grenze_ab()
+    {
+        Assert.IsFalse(Kalenderwoche.TryParse("9999-W01", out _));
+        Assert.IsTrue(Kalenderwoche.TryParse("9998-W01", out _));
+    }
+
+    [TestMethod]
+    public void Hinter_der_letzten_Woche_gibt_es_keine_naechste_mehr()
+    {
+        var letzte = new Kalenderwoche(
+            Kalenderwoche.MaxJahr, Kalenderwoche.WochenImJahr(Kalenderwoche.MaxJahr));
+
+        Assert.ThrowsExactly<InvalidOperationException>(() => letzte.Naechste());
+    }
+
+    [TestMethod]
+    public void Vor_der_ersten_Woche_gibt_es_keine_vorherige_mehr()
+    {
+        var erste = new Kalenderwoche(Kalenderwoche.MinJahr, 1);
+
+        Assert.ThrowsExactly<InvalidOperationException>(() => erste.Vorherige());
+    }
 }

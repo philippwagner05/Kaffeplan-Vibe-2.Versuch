@@ -19,6 +19,13 @@ namespace Kaffeeplan.Core;
 /// gierige Auswahl fest, wird zurueckgesetzt und ein anderer Zweig probiert.
 /// </para>
 /// <para>
+/// Wichtig dabei: Wer noch eine Filterwoche vor sich hat, braucht dafuer auch noch
+/// Kontingent. Deshalb wird pro Person so viel Kontingent zurueckgehalten, wie sie
+/// noch feste Wochen vor sich hat. Ohne diese Reservierung verbraucht die gierige
+/// Auswahl das Kontingent vorher an freien Wochen, die Filterwoche hat dann keinen
+/// Kandidaten mehr, und die Suche muss aussichtslos weit zurueckrollen.
+/// </para>
+/// <para>
 /// Findet die Suche keine Loesung, ist das ein Ergebnis und kein Fehler: bei einer
 /// Person ist F3 unmoeglich, bei zwei Personen erzwingt F3 strikte Abwechslung,
 /// wodurch alle (stets ungeraden) Filterwochen dieselbe Person treffen und F2
@@ -76,9 +83,12 @@ public sealed class Dienstplaner
         IReadOnlyList<int> filterwochen = _rhythmus.Filterwochen(jahr);
         var festeZuordnung = new int[wochen + 2];
         Array.Fill(festeZuordnung, Suche.Frei);
+        var festeWochenJePerson = new int[anzahlPersonen];
         for (int k = 0; k < filterwochen.Count; k++)
         {
-            festeZuordnung[filterwochen[k]] = k % anzahlPersonen;
+            int person = k % anzahlPersonen;
+            festeZuordnung[filterwochen[k]] = person;
+            festeWochenJePerson[person]++;
         }
 
         // Schritt 2: Kontingente so verteilen, dass sich die Reinigungen um hoechstens
@@ -91,14 +101,24 @@ public sealed class Dienstplaner
             kontingent[person] = basis + (person < rest ? 1 : 0);
         }
 
+        // Reicht das Kontingent einer Person nicht einmal fuer ihre eigenen Filterwochen,
+        // ist der Fall aussichtslos. Das faellt hier sofort auf, statt die Suche
+        // ueber MaxSchritte hinweg leerlaufen zu lassen.
+        for (int person = 0; person < anzahlPersonen; person++)
+        {
+            if (kontingent[person] < festeWochenJePerson[person])
+            {
+                return PlanungsErgebnis.Fehler(KeinPlanMeldung(anzahlPersonen, jahr));
+            }
+        }
+
         // Schritt 3: Wochen fuellen, Vorwoche und naechste feste Woche ausgeschlossen -> F3.
-        var suche = new Suche(wochen, anzahlPersonen, festeZuordnung, kontingent);
+        var suche = new Suche(wochen, anzahlPersonen, festeZuordnung, kontingent, festeWochenJePerson);
         if (!suche.Loese(1))
         {
             return PlanungsErgebnis.Fehler(suche.Abgebrochen
                 ? $"Die Suche wurde nach {MaxSchritte} Schritten abgebrochen, ohne einen Plan zu finden."
-                : $"Für {anzahlPersonen} " + (anzahlPersonen == 1 ? "Person" : "Personen") +
-                  $" gibt es im Jahr {jahr} keinen Plan, der F1, F2 und F3 gleichzeitig erfüllt.");
+                : KeinPlanMeldung(anzahlPersonen, jahr));
         }
 
         var eintraege = new List<Wocheneintrag>(wochen);
@@ -113,8 +133,12 @@ public sealed class Dienstplaner
         return PlanungsErgebnis.Erfolg(new Dienstplan(jahr, eintraege));
     }
 
+    private static string KeinPlanMeldung(int anzahlPersonen, int jahr) =>
+        $"Für {anzahlPersonen} " + (anzahlPersonen == 1 ? "Person" : "Personen") +
+        $" gibt es im Jahr {jahr} keinen Plan, der F1, F2 und F3 gleichzeitig erfüllt.";
+
     /// <summary>
-    /// Tiefensuche ueber die Wochen. Die Kandidaten werden nach verbleibendem
+    /// Tiefensuche ueber die Wochen. Die Kandidaten werden nach frei verfuegbarem
     /// Kontingent absteigend probiert - das ist die gierige Reihenfolge, die in der
     /// Praxis sofort durchlaeuft. Bei Gleichstand entscheidet der kleinere Index,
     /// damit derselbe Input immer denselben Plan ergibt.
@@ -127,14 +151,24 @@ public sealed class Dienstplaner
         private readonly int _anzahlPersonen;
         private readonly int[] _festeZuordnung;
         private readonly int[] _kontingent;
+
+        /// <summary>Wie viele feste Wochen eine Person ab der laufenden Woche noch vor sich hat.</summary>
+        private readonly int[] _festeVoraus;
+
         private int _schritte;
 
-        public Suche(int wochen, int anzahlPersonen, int[] festeZuordnung, int[] kontingent)
+        public Suche(
+            int wochen,
+            int anzahlPersonen,
+            int[] festeZuordnung,
+            int[] kontingent,
+            int[] festeWochenJePerson)
         {
             _wochen = wochen;
             _anzahlPersonen = anzahlPersonen;
             _festeZuordnung = festeZuordnung;
             _kontingent = kontingent;
+            _festeVoraus = festeWochenJePerson;
             Belegung = new int[wochen + 1];
             Array.Fill(Belegung, Frei);
         }
@@ -158,15 +192,27 @@ public sealed class Dienstplaner
 
             int vorherige = woche > 1 ? Belegung[woche - 1] : Frei;
             int naechsteFeste = woche < _wochen ? _festeZuordnung[woche + 1] : Frei;
+            bool istFesteWoche = _festeZuordnung[woche] != Frei;
 
             foreach (int person in Kandidaten(woche, vorherige, naechsteFeste))
             {
                 Belegung[woche] = person;
                 _kontingent[person]--;
+                if (istFesteWoche)
+                {
+                    // Diese feste Woche ist jetzt abgearbeitet und zaehlt nicht mehr zu
+                    // den Wochen, fuer die noch Kontingent zurueckzuhalten ist.
+                    _festeVoraus[person]--;
+                }
 
                 if (Loese(woche + 1))
                 {
                     return true;
+                }
+
+                if (istFesteWoche)
+                {
+                    _festeVoraus[person]++;
                 }
 
                 _kontingent[person]++;
@@ -198,7 +244,7 @@ public sealed class Dienstplaner
             var moeglich = new List<int>(_anzahlPersonen);
             for (int person = 0; person < _anzahlPersonen; person++)
             {
-                if (_kontingent[person] > 0 && person != vorherige && person != naechsteFeste)
+                if (FreiesKontingent(person) > 0 && person != vorherige && person != naechsteFeste)
                 {
                     moeglich.Add(person);
                 }
@@ -206,7 +252,7 @@ public sealed class Dienstplaner
 
             moeglich.Sort((links, rechts) =>
             {
-                int nachKontingent = _kontingent[rechts].CompareTo(_kontingent[links]);
+                int nachKontingent = FreiesKontingent(rechts).CompareTo(FreiesKontingent(links));
                 return nachKontingent != 0 ? nachKontingent : links.CompareTo(rechts);
             });
 
@@ -215,5 +261,11 @@ public sealed class Dienstplaner
                 yield return person;
             }
         }
+
+        /// <summary>
+        /// Das Kontingent, das eine Person fuer eine freie Woche einsetzen darf: ihr
+        /// Restkontingent abzueglich der Filterwochen, die sie noch bedienen muss.
+        /// </summary>
+        private int FreiesKontingent(int person) => _kontingent[person] - _festeVoraus[person];
     }
 }

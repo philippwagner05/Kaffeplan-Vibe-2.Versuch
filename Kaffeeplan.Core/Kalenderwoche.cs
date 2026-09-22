@@ -11,15 +11,21 @@ namespace Kaffeeplan.Core;
 public readonly record struct Kalenderwoche : IComparable<Kalenderwoche>
 {
     public const int MinJahr = 1;
-    public const int MaxJahr = 9999;
+
+    /// <summary>
+    /// Das letzte planbare Jahr. Bewusst 9998 und nicht 9999: die letzte ISO-Woche des
+    /// Jahres 9999 beginnt am Montag, dem 27.12.9999, und endet am Sonntag, dem
+    /// 02.01.10000 - dieser Sonntag liegt hinter <see cref="DateOnly.MaxValue"/> und
+    /// laesst sich nicht darstellen. Ein Plan fuer 9999 wuerde deshalb erst beim
+    /// Anzeigen oder Exportieren mit einer Ausnahme scheitern (A11). Statt das Datum
+    /// abzuschneiden und damit falsch zu machen, ist das Jahr hier gar nicht erst
+    /// gueltig.
+    /// </summary>
+    public const int MaxJahr = 9998;
 
     public Kalenderwoche(int jahr, int woche)
     {
-        if (jahr is < MinJahr or > MaxJahr)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(jahr), jahr, $"Das Jahr muss zwischen {MinJahr} und {MaxJahr} liegen.");
-        }
+        PruefeJahr(jahr, nameof(jahr));
 
         int wochenImJahr = WochenImJahr(jahr);
         if (woche < 1 || woche > wochenImJahr)
@@ -41,20 +47,27 @@ public readonly record struct Kalenderwoche : IComparable<Kalenderwoche>
     /// <summary>Anzahl der Kalenderwochen eines Jahres. 2026 und 2032 haben zum Beispiel 53.</summary>
     public static int WochenImJahr(int jahr)
     {
-        if (jahr is < MinJahr or > MaxJahr)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(jahr), jahr, $"Das Jahr muss zwischen {MinJahr} und {MaxJahr} liegen.");
-        }
-
+        PruefeJahr(jahr, nameof(jahr));
         return ISOWeek.GetWeeksInYear(jahr);
     }
 
-    /// <summary>Die Kalenderwoche, in die ein Datum faellt.</summary>
+    /// <summary>
+    /// Die Kalenderwoche, in die ein Datum faellt.
+    /// Die letzten Tage des Jahres 9999 gehoeren bereits zum ISO-Wochenjahr 9999 und
+    /// damit zu keiner darstellbaren Woche mehr - siehe <see cref="MaxJahr"/>.
+    /// </summary>
     public static Kalenderwoche VonDatum(DateOnly datum)
     {
         DateTime zeitpunkt = datum.ToDateTime(TimeOnly.MinValue);
-        return new Kalenderwoche(ISOWeek.GetYear(zeitpunkt), ISOWeek.GetWeekOfYear(zeitpunkt));
+        int jahr = ISOWeek.GetYear(zeitpunkt);
+        if (jahr > MaxJahr)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(datum), datum,
+                $"Das Datum liegt im ISO-Wochenjahr {jahr}; darstellbar sind Jahre bis {MaxJahr}.");
+        }
+
+        return new Kalenderwoche(jahr, ISOWeek.GetWeekOfYear(zeitpunkt));
     }
 
     /// <summary>Alle Kalenderwochen eines Jahres, aufsteigend.</summary>
@@ -74,13 +87,45 @@ public readonly record struct Kalenderwoche : IComparable<Kalenderwoche>
 
     public DateOnly Sonntag => Montag.AddDays(6);
 
-    /// <summary>Die folgende Woche, ueber die Jahresgrenze hinweg.</summary>
-    public Kalenderwoche Naechste() =>
-        Woche < WochenImJahr(Jahr) ? new Kalenderwoche(Jahr, Woche + 1) : new Kalenderwoche(Jahr + 1, 1);
+    /// <summary>
+    /// Die folgende Woche, ueber die Jahresgrenze hinweg.
+    /// Nach der letzten Woche des Jahres <see cref="MaxJahr"/> gibt es keine mehr.
+    /// </summary>
+    public Kalenderwoche Naechste()
+    {
+        if (Woche < WochenImJahr(Jahr))
+        {
+            return new Kalenderwoche(Jahr, Woche + 1);
+        }
 
-    /// <summary>Die vorangehende Woche, ueber die Jahresgrenze hinweg.</summary>
-    public Kalenderwoche Vorherige() =>
-        Woche > 1 ? new Kalenderwoche(Jahr, Woche - 1) : new Kalenderwoche(Jahr - 1, WochenImJahr(Jahr - 1));
+        if (Jahr >= MaxJahr)
+        {
+            throw new InvalidOperationException(
+                $"Nach {this} gibt es keine darstellbare Kalenderwoche mehr.");
+        }
+
+        return new Kalenderwoche(Jahr + 1, 1);
+    }
+
+    /// <summary>
+    /// Die vorangehende Woche, ueber die Jahresgrenze hinweg.
+    /// Vor der ersten Woche des Jahres <see cref="MinJahr"/> gibt es keine mehr.
+    /// </summary>
+    public Kalenderwoche Vorherige()
+    {
+        if (Woche > 1)
+        {
+            return new Kalenderwoche(Jahr, Woche - 1);
+        }
+
+        if (Jahr <= MinJahr)
+        {
+            throw new InvalidOperationException(
+                $"Vor {this} gibt es keine darstellbare Kalenderwoche.");
+        }
+
+        return new Kalenderwoche(Jahr - 1, WochenImJahr(Jahr - 1));
+    }
 
     public int CompareTo(Kalenderwoche andere)
     {
@@ -125,5 +170,14 @@ public readonly record struct Kalenderwoche : IComparable<Kalenderwoche>
 
         ergebnis = new Kalenderwoche(jahr, woche);
         return true;
+    }
+
+    private static void PruefeJahr(int jahr, string parametername)
+    {
+        if (jahr is < MinJahr or > MaxJahr)
+        {
+            throw new ArgumentOutOfRangeException(
+                parametername, jahr, $"Das Jahr muss zwischen {MinJahr} und {MaxJahr} liegen.");
+        }
     }
 }

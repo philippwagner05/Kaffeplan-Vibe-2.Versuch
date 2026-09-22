@@ -110,4 +110,22 @@ public sealed class CsvExporterTests
         CollectionAssert.AreEqual(new byte[] { 0xEF, 0xBB, 0xBF }, inhalt.Take(3).ToArray());
         StringAssert.Contains(Encoding.UTF8.GetString(inhalt), "Jürgen");
     }
+
+    [TestMethod]
+    public void Auch_der_Plan_des_letzten_gueltigen_Jahres_laesst_sich_exportieren()
+    {
+        // Der Export schreibt zu jeder Woche deren Sonntag. Am oberen Rand des
+        // Jahresbereichs war dieser Sonntag frueher nicht darstellbar, und der Export
+        // brach mit einer Ausnahme ab (A10, A11).
+        List<Mitarbeiter> team = Testdaten.Team(6);
+        Dienstplan plan = new Dienstplaner().Erzeuge(Kalenderwoche.MaxJahr, team).Plan!;
+
+        using var strom = new MemoryStream();
+        CsvExporter.Schreibe(strom, plan, team);
+
+        string inhalt = Encoding.UTF8.GetString(strom.ToArray());
+        Assert.HasCount(
+            plan.Wochenanzahl + 1,
+            inhalt.TrimEnd('\r', '\n').Split("\r\n"));
+    }
 }

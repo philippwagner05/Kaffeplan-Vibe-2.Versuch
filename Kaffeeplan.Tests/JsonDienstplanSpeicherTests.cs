@@ -104,6 +104,60 @@ public sealed class JsonDienstplanSpeicherTests
         Assert.ThrowsExactly<SpeicherAusnahme>(() => LadeAus("null"));
     }
 
+    // --- null an Stellen, an denen das Schema ein Objekt oder eine Liste erwartet ----
+    // System.Text.Json setzt die Eigenschaft dann auf null und ueberschreibt damit auch
+    // den Initialwert. Frueher entstand daraus eine NullReferenceException, die weder der
+    // Speicher noch das ViewModel auffing - das Laden einer von Hand editierten Datei
+    // liess die Anwendung abstuerzen (A9, A11).
+
+    [TestMethod]
+    public void Ein_leerer_Wocheneintrag_wird_als_Speicherfehler_gemeldet()
+    {
+        const string json = """
+            { "Version": 1, "Mitarbeiter": [], "Plan": { "Jahr": 2025, "Eintraege": [ null ] } }
+            """;
+
+        Assert.ThrowsExactly<SpeicherAusnahme>(() => LadeAus(json));
+    }
+
+    [TestMethod]
+    public void Eine_fehlende_Eintragsliste_wird_als_Speicherfehler_gemeldet()
+    {
+        const string json = """
+            { "Version": 1, "Mitarbeiter": [], "Plan": { "Jahr": 2025, "Eintraege": null } }
+            """;
+
+        Assert.ThrowsExactly<SpeicherAusnahme>(() => LadeAus(json));
+    }
+
+    [TestMethod]
+    public void Eine_fehlende_Mitarbeiterliste_wird_als_Speicherfehler_gemeldet()
+    {
+        Assert.ThrowsExactly<SpeicherAusnahme>(
+            () => LadeAus("""{ "Version": 1, "Mitarbeiter": null }"""));
+    }
+
+    [TestMethod]
+    public void Ein_leerer_Mitarbeitereintrag_wird_als_Speicherfehler_gemeldet()
+    {
+        Assert.ThrowsExactly<SpeicherAusnahme>(
+            () => LadeAus("""{ "Version": 1, "Mitarbeiter": [ null ] }"""));
+    }
+
+    [TestMethod]
+    public void Eine_fehlende_Woche_im_Eintrag_wird_als_Speicherfehler_gemeldet()
+    {
+        const string json = """
+            {
+              "Version": 1,
+              "Mitarbeiter": [],
+              "Plan": { "Jahr": 2025, "Eintraege": [ { "Woche": null } ] }
+            }
+            """;
+
+        Assert.ThrowsExactly<SpeicherAusnahme>(() => LadeAus(json));
+    }
+
     [TestMethod]
     public void Eine_fehlende_Datei_ist_kein_Fehler_sondern_ein_leerer_Stand()
     {

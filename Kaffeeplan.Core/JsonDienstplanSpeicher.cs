@@ -86,6 +86,21 @@ public sealed class JsonDienstplanSpeicher : IDienstplanSpeicher
                 $"Die Datei hat Version {dto.Version}, dieses Programm kann Version {AktuelleVersion}.");
         }
 
+        // Eine von Hand editierte Datei kann ueberall "null" stehen haben - auch dort,
+        // wo das Schema ein Objekt oder eine Liste erwartet. System.Text.Json setzt
+        // die Eigenschaft dann auf null und ueberschreibt damit auch einen Initialwert.
+        // Ohne diese Pruefungen gaebe es eine NullReferenceException, die weder vom
+        // catch-Filter unten noch von der Oberflaeche aufgefangen wird (A9, A11).
+        if (dto.Mitarbeiter is null)
+        {
+            throw new SpeicherAusnahme("Die Datei enthält keine Mitarbeiterliste.");
+        }
+
+        if (dto.Mitarbeiter.Any(m => m is null))
+        {
+            throw new SpeicherAusnahme("Die Mitarbeiterliste in der Datei enthält einen leeren Eintrag.");
+        }
+
         try
         {
             var mitarbeiter = dto.Mitarbeiter
@@ -99,6 +114,16 @@ public sealed class JsonDienstplanSpeicher : IDienstplanSpeicher
             Dienstplan? plan = null;
             if (dto.Plan is not null)
             {
+                if (dto.Plan.Eintraege is null)
+                {
+                    throw new SpeicherAusnahme("Der Plan in der Datei enthält keine Wocheneinträge.");
+                }
+
+                if (dto.Plan.Eintraege.Any(e => e is null))
+                {
+                    throw new SpeicherAusnahme("Der Plan in der Datei enthält einen leeren Wocheneintrag.");
+                }
+
                 var eintraege = dto.Plan.Eintraege
                     .Select(e => new Wocheneintrag(
                         Kalenderwoche.Parse(e.Woche), e.MitarbeiterId, e.Filtertausch))
